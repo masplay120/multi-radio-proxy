@@ -11,7 +11,7 @@ const STREAMS = {
   radio3: "http://tu-servidor3:puerto/mountpoint3"
 };
 
-// Ruta dinámica: http://localhost:3000/radio1
+// Ruta dinámica: http://localhost:8080/radio1
 app.get("/:radio", (req, res) => {
   const radio = req.params.radio;
   const url = STREAMS[radio];
