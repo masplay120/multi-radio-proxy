@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 8080;
 // 🎵 Lista de radios: todas usan el mismo status-json.xsl
 const STREAMS = {
   radio10856355: {
-    url: "http://streamlive2.hearthis.at:8000/10856355.ogg",
+    url: "http://streamlive2.hearthis.at:8000/10856355.ogg......",
     mount: "10856355.ogg"
   },
   radio10778826: {
