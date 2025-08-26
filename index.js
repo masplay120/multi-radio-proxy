@@ -4,24 +4,24 @@ const request = require("request");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// 🎵 Lista de streams
+// 🎵 Lista de radios: todas usan el mismo status-json.xsl
 const STREAMS = {
   radio10856355: {
     url: "http://streamlive2.hearthis.at:8000/10856355.ogg",
-    status: "http://streamlive2.hearthis.at:8000/status-json.xsl",
     mount: "10856355.ogg"
   },
   radio10778826: {
     url: "http://streamlive2.hearthis.at:8000/10778826.ogg",
-    status: "http://streamlive2.hearthis.at:8000/status-json.xsl",
     mount: "10778826.ogg"
   },
   radio3: {
-    url: "http://tu-servidor3:puerto/mountpoint3",
-    status: "http://tu-servidor3:puerto/status-json.xsl",
+    url: "http://streamlive2.hearthis.at:8000/mountpoint3",
     mount: "mountpoint3"
   }
 };
+
+// URL de metadata global del servidor
+const STATUS_URL = "http://streamlive2.hearthis.at:8000/status-json.xsl";
 
 // 🎶 Proxy de audio
 app.get("/:radio", (req, res) => {
@@ -50,7 +50,7 @@ app.get("/:radio/meta", (req, res) => {
     return res.status(404).json({ error: "Stream no encontrado" });
   }
 
-  request(stream.status, (err, _, body) => {
+  request(STATUS_URL, (err, _, body) => {
     if (err) {
       console.error(`Error con metadata ${radio}:`, err.message);
       return res.status(500).json({ error: "Error obteniendo metadata" });
@@ -59,24 +59,31 @@ app.get("/:radio/meta", (req, res) => {
     try {
       const data = JSON.parse(body);
 
-      // Buscar el mount correcto
-      let source = null;
-      if (Array.isArray(data.icestats.source)) {
-        source = data.icestats.source.find(
-          (s) => s.listenurl && s.listenurl.includes(stream.mount)
-        );
-      } else if (data.icestats.source.listenurl.includes(stream.mount)) {
-        source = data.icestats.source;
+      let sources = data.icestats.source;
+      if (!sources) {
+        return res.json({ listeners: 0, title: null, artwork: null });
       }
 
+      if (!Array.isArray(sources)) {
+        sources = [sources];
+      }
+
+      const source = sources.find(
+        (s) => s.listenurl && s.listenurl.includes(stream.mount)
+      );
+
       if (!source) {
-        return res.json({ listeners: 0, title: null });
+        return res.json({ listeners: 0, title: null, artwork: null });
       }
 
       res.json({
-        listeners: source.listeners || 0,
-        title: source.title || source.server_description || "Sin título",
-        artwork: source.artwork_url || null
+        listeners: source.listeners ?? 0,
+        title:
+          source.title ||
+          source.server_name ||
+          source.server_description ||
+          "Sin título",
+        artwork: source.artwork_url || source.track_image_url || null
       });
     } catch (e) {
       console.error("Error parseando metadata:", e.message);
