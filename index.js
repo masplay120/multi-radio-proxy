@@ -4,7 +4,7 @@ const request = require("request");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// 🎵 Lista de radios: todas usan el mismo status-json.xsl
+// 🎵 Lista de radios
 const STREAMS = {
   radio10856355: {
     url: "http://streamlive2.hearthis.at:8000/10856355.ogg",
@@ -20,8 +20,16 @@ const STREAMS = {
   }
 };
 
-// URL de metadata global del servidor
+// URL global de metadata (Icecast)
 const STATUS_URL = "http://streamlive2.hearthis.at:8000/status-json.xsl";
+
+// Middleware global para habilitar CORS en todas las rutas
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  next();
+});
 
 // 🎶 Proxy de audio
 app.get("/:radio", (req, res) => {
@@ -33,6 +41,7 @@ app.get("/:radio", (req, res) => {
   }
 
   res.setHeader("Content-Type", "audio/mpeg");
+
   request(stream.url)
     .on("error", (err) => {
       console.error(`Error con stream ${radio}:`, err.message);
