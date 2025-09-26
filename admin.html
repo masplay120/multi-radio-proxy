@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Panel de Radios</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input, button { margin: 5px; padding: 5px; }
+    .radio { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>Panel de Radios 🎵</h1>
+  
+  <div id="login">
+    <input type="password" id="password" placeholder="Contraseña admin" />
+    <button onclick="login()">Entrar</button>
+  </div>
+  
+  <div id="panel" style="display:none;">
+    <h2>Agregar Radio</h2>
+    <input id="id" placeholder="ID (ej. radio1)" />
+    <input id="url" placeholder="URL stream" />
+    <input id="mount" placeholder="Mount (ej. radio1.ogg)" />
+    <button onclick="addRadio()">Guardar</button>
+
+    <h2>Lista de Radios</h2>
+    <div id="lista"></div>
+  </div>
+
+<script>
+let token = "";
+
+function login() {
+  token = document.getElementById("password").value;
+  loadRadios();
+}
+
+function loadRadios() {
+  fetch("/admin-api/radios", { headers: { "Authorization": "Bearer " + token } })
+    .then(r => {
+      if (r.status === 401) { alert("Contraseña incorrecta"); return; }
+      return r.json();
+    })
+    .then(radios => {
+      document.getElementById("login").style.display = "none";
+      document.getElementById("panel").style.display = "block";
+      renderRadios(radios);
+    });
+}
+
+function renderRadios(radios) {
+  const lista = document.getElementById("lista");
+  lista.innerHTML = "";
+  for (let id in radios) {
+    const div = document.createElement("div");
+    div.className = "radio";
+    div.innerHTML = `<b>${id}</b><br>${radios[id].url}<br>${radios[id].mount}
+      <br><button onclick="deleteRadio('${id}')">Eliminar</button>`;
+    lista.appendChild(div);
+  }
+}
+
+function addRadio() {
+  const id = document.getElementById("id").value;
+  const url = document.getElementById("url").value;
+  const mount = document.getElementById("mount").value;
+  fetch("/admin-api/radios", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ id, url, mount })
+  }).then(r => r.json()).then(r => renderRadios(r.radios));
+}
+
+function deleteRadio(id) {
+  fetch("/admin-api/radios/" + id, {
+    method: "DELETE",
+    headers: { "Authorization": "Bearer " + token }
+  }).then(r => r.json()).then(r => renderRadios(r.radios));
+}
+</script>
+</body>
+</html>
