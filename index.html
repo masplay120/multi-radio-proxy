@@ -2,80 +2,215 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Panel de Radios</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Multi-Radio</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 <style>
-body { font-family: sans-serif; padding: 20px; }
-input, button { margin: 5px; padding: 5px; }
-.radio { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    padding: 0;
+  }
+  header {
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  .container {
+    max-width: 900px;
+    margin: 2rem auto;
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2rem;
+  }
+  th, td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+  }
+  th {
+    background: #f0f0f0;
+  }
+  button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    color: white;
+  }
+  .edit-btn { background: #ffb700; }
+  .edit-btn:hover { background: #ffa500; }
+  .delete-btn { background: #ff4d4f; }
+  .delete-btn:hover { background: #e63946; }
+  .add-btn { background: #4facfe; }
+  .add-btn:hover { background: #00f2fe; }
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  input {
+    flex: 1;
+    padding: 0.5rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+  }
+  .form-group {
+    flex: 1;
+    min-width: 200px;
+  }
 </style>
 </head>
 <body>
-<h1>Panel de Radios 🎵</h1>
 
-<div id="login">
-<input type="password" id="password" placeholder="Contraseña admin">
-<button onclick="login()">Entrar</button>
-</div>
+<header>Panel Multi-Radio</header>
 
-<div id="panel" style="display:none;">
-<h2>Agregar / Editar Radio</h2>
-<input id="id" placeholder="ID (ej. radio1)">
-<input id="url" placeholder="URL stream">
-<input id="mount" placeholder="Mount (ej. radio1.ogg)">
-<button onclick="saveRadio()">Guardar</button>
+<div class="container">
+  <h2>Administrar Radios</h2>
 
-<h2>Lista de Radios</h2>
-<div id="lista"></div>
+  <table id="radios-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>URL</th>
+        <th>Mount</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h3 id="form-title">Agregar Nueva Radio</h3>
+  <form id="radio-form">
+    <div class="form-group">
+      <input type="text" id="radio-id" placeholder="ID (único)" required>
+    </div>
+    <div class="form-group">
+      <input type="text" id="radio-url" placeholder="URL del stream" required>
+    </div>
+    <div class="form-group">
+      <input type="text" id="radio-mount" placeholder="Mount" required>
+    </div>
+    <button type="submit" class="add-btn">Guardar</button>
+  </form>
 </div>
 
 <script>
-let token = "";
+const radiosTable = document.querySelector("#radios-table tbody");
+const form = document.getElementById("radio-form");
+const formTitle = document.getElementById("form-title");
+const idInput = document.getElementById("radio-id");
+const urlInput = document.getElementById("radio-url");
+const mountInput = document.getElementById("radio-mount");
 
-function login() {
-  token = document.getElementById("password").value;
-  loadRadios();
-}
+let editingId = null;
 
-function loadRadios() {
-  fetch("/admin-api/radios", { headers: { "Authorization": "Bearer " + token } })
-  .then(r => r.status === 401 ? alert("Contraseña incorrecta") : r.json())
-  .then(radios => {
-    if (!radios) return;
-    document.getElementById("login").style.display="none";
-    document.getElementById("panel").style.display="block";
-    renderRadios(radios);
-  });
-}
+// Solicitar contraseña
+let token = prompt("Ingrese contraseña de admin:");
 
-function renderRadios(radios) {
-  const lista = document.getElementById("lista");
-  lista.innerHTML = "";
-  for (let id in radios) {
-    const div = document.createElement("div");
-    div.className="radio";
-    div.innerHTML=`<b>${id}</b><br>${radios[id].url}<br>${radios[id].mount}<br>
-    <button onclick="deleteRadio('${id}')">Eliminar</button>`;
-    lista.appendChild(div);
+// Función para cargar radios
+async function loadRadios() {
+  try {
+    const res = await fetch("/admin-api/radios", {
+      headers: { "Authorization": "Bearer " + token }
+    });
+    if (res.status === 401) {
+      alert("Contraseña incorrecta");
+      return;
+    }
+    const radios = await res.json();
+    renderTable(radios);
+  } catch (err) {
+    console.error(err);
   }
 }
 
-function saveRadio() {
-  const id = document.getElementById("id").value;
-  const url = document.getElementById("url").value;
-  const mount = document.getElementById("mount").value;
-  fetch("/admin-api/radios", {
-    method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
-    body:JSON.stringify({id,url,mount})
-  }).then(r=>r.json()).then(r=>renderRadios(r.radios));
+// Renderizar tabla
+function renderTable(radios) {
+  radiosTable.innerHTML = "";
+  Object.keys(radios).forEach(id => {
+    const radio = radios[id];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${id}</td>
+      <td>${radio.url}</td>
+      <td>${radio.mount}</td>
+      <td>
+        <button class="edit-btn" onclick="editRadio('${id}', '${radio.url}', '${radio.mount}')">Editar</button>
+        <button class="delete-btn" onclick="deleteRadio('${id}')">Eliminar</button>
+      </td>
+    `;
+    radiosTable.appendChild(tr);
+  });
 }
 
-function deleteRadio(id) {
-  fetch("/admin-api/radios/"+id,{
-    method:"DELETE",
-    headers:{"Authorization":"Bearer "+token}
-  }).then(r=>r.json()).then(r=>renderRadios(r.radios));
+// Editar radio
+function editRadio(id, url, mount) {
+  editingId = id;
+  formTitle.textContent = `Editar Radio: ${id}`;
+  idInput.value = id;
+  idInput.disabled = true; // No cambiar el ID
+  urlInput.value = url;
+  mountInput.value = mount;
 }
+
+// Eliminar radio
+async function deleteRadio(id) {
+  if (!confirm("¿Seguro que quieres eliminar esta radio?")) return;
+  try {
+    await fetch("/admin-api/radios/" + id, {
+      method: "DELETE",
+      headers: { "Authorization": "Bearer " + token }
+    });
+    loadRadios();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Agregar / actualizar radio
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  const id = idInput.value.trim();
+  const url = urlInput.value.trim();
+  const mount = mountInput.value.trim();
+
+  if (!id || !url || !mount) return;
+
+  try {
+    await fetch("/admin-api/radios", {
+      method: "POST",
+      headers: { 
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ id, url, mount })
+    });
+    form.reset();
+    formTitle.textContent = "Agregar Nueva Radio";
+    idInput.disabled = false;
+    editingId = null;
+    loadRadios();
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+// Inicializar
+loadRadios();
 </script>
+
 </body>
 </html>
