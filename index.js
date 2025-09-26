@@ -6,20 +6,32 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// Archivo que almacena las radios
 const radiosFile = path.join(__dirname, "radios.json");
 
+// Función para leer radios.json
 function loadRadios() {
-  try { return JSON.parse(fs.readFileSync(radiosFile, "utf-8")); }
-  catch (err) { return {}; }
+  try {
+    return JSON.parse(fs.readFileSync(radiosFile, "utf-8"));
+  } catch (err) {
+    return {};
+  }
 }
 
-// Middleware CORS
+// Middleware para habilitar CORS
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, DELETE");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   next();
 });
+
+// Servir archivos estáticos (index.html y otros si hay)
+app.use(express.static(__dirname));
+
+// ===================================
+// RUTAS DE PROXY
+// ===================================
 
 // Proxy de audio
 app.get("/:radio", (req, res) => {
@@ -28,10 +40,12 @@ app.get("/:radio", (req, res) => {
   if (!stream) return res.status(404).send("Stream no encontrado");
 
   res.setHeader("Content-Type", "audio/mpeg");
-  request(stream.url).on("error", err => {
-    console.error(`Error con stream ${req.params.radio}:`, err.message);
-    res.status(500).send("Error al conectar con el stream");
-  }).pipe(res);
+  request(stream.url)
+    .on("error", err => {
+      console.error(`Error con stream ${req.params.radio}:`, err.message);
+      res.status(500).send("Error al conectar con el stream");
+    })
+    .pipe(res);
 });
 
 // Proxy de metadata
@@ -59,12 +73,17 @@ app.get("/:radio/meta", (req, res) => {
         artwork: source.artwork_url || source.track_image_url || null
       });
     } catch (e) {
+      console.error("Error parseando metadata:", e.message);
       res.status(500).json({ error: "Error procesando metadata" });
     }
   });
 });
 
-// Middleware admin
+// ===================================
+// RUTAS DE ADMIN (protegidas)
+// ===================================
+
+// Middleware simple de autenticación
 app.use("/admin-api", (req, res, next) => {
   const auth = req.headers.authorization;
   if (!auth || auth !== `Bearer ${process.env.ADMIN_PASS}`) {
@@ -73,25 +92,35 @@ app.use("/admin-api", (req, res, next) => {
   next();
 });
 
-// API admin
-app.get("/admin-api/radios", (req, res) => res.json(loadRadios()));
+// Listar radios
+app.get("/admin-api/radios", (req, res) => {
+  res.json(loadRadios());
+});
+
+// Agregar / editar radio
 app.post("/admin-api/radios", express.json(), (req, res) => {
   const { id, url, mount } = req.body;
   if (!id || !url || !mount) return res.status(400).json({ error: "Faltan campos" });
+
   const radios = loadRadios();
   radios[id] = { url, mount };
   fs.writeFileSync(radiosFile, JSON.stringify(radios, null, 2));
   res.json({ success: true, radios });
 });
+
+// Eliminar radio
 app.delete("/admin-api/radios/:id", (req, res) => {
   const radios = loadRadios();
   if (!radios[req.params.id]) return res.status(404).json({ error: "Radio no encontrada" });
+
   delete radios[req.params.id];
   fs.writeFileSync(radiosFile, JSON.stringify(radios, null, 2));
   res.json({ success: true, radios });
 });
 
-// Servir panel
-app.use(express.static(__dirname));
-
-app.listen(PORT, () => console.log(`Proxy corriendo en http://localhost:${PORT}`));
+// ===================================
+// Iniciar servidor
+// ===================================
+app.listen(PORT, () => {
+  console.log(`Proxy corriendo y panel disponible en http://localhost:${PORT}`);
+});
