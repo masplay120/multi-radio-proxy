@@ -71,15 +71,31 @@
     flex: 1;
     min-width: 200px;
   }
+  #login-container {
+    text-align: center;
+  }
+  #login-container input {
+    max-width: 300px;
+  }
 </style>
 </head>
 <body>
 
 <header>Panel Multi-Radio</header>
 
-<div class="container">
-  <h2>Administrar Radios</h2>
+<!-- Login -->
+<div class="container" id="login-container">
+  <h2>Acceso al Panel</h2>
+  <form id="login-form">
+    <input type="password" id="login-password" placeholder="Contraseña" required>
+    <button type="submit" class="add-btn">Entrar</button>
+  </form>
+  <p id="login-error" style="color:red; display:none;">Contraseña incorrecta</p>
+</div>
 
+<!-- Panel -->
+<div class="container" id="panel-container" style="display:none;">
+  <h2>Administrar Radios</h2>
   <table id="radios-table">
     <thead>
       <tr>
@@ -108,6 +124,12 @@
 </div>
 
 <script>
+const loginForm = document.getElementById("login-form");
+const loginPassword = document.getElementById("login-password");
+const loginError = document.getElementById("login-error");
+const loginContainer = document.getElementById("login-container");
+const panelContainer = document.getElementById("panel-container");
+
 const radiosTable = document.querySelector("#radios-table tbody");
 const form = document.getElementById("radio-form");
 const formTitle = document.getElementById("form-title");
@@ -116,11 +138,33 @@ const urlInput = document.getElementById("radio-url");
 const mountInput = document.getElementById("radio-mount");
 
 let editingId = null;
+let token = null;
 
-// Solicitar contraseña
-let token = prompt("Ingrese contraseña de admin:");
+// Login integrado
+loginForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const password = loginPassword.value.trim();
+  if (!password) return;
 
-// Función para cargar radios
+  try {
+    const res = await fetch("/admin-api/radios", {
+      headers: { "Authorization": "Bearer " + password }
+    });
+    if (res.status === 200) {
+      token = password;
+      loginContainer.style.display = "none";
+      panelContainer.style.display = "block";
+      loadRadios();
+    } else {
+      loginError.style.display = "block";
+    }
+  } catch (err) {
+    console.error(err);
+    loginError.style.display = "block";
+  }
+});
+
+// Cargar radios
 async function loadRadios() {
   try {
     const res = await fetch("/admin-api/radios", {
@@ -161,7 +205,7 @@ function editRadio(id, url, mount) {
   editingId = id;
   formTitle.textContent = `Editar Radio: ${id}`;
   idInput.value = id;
-  idInput.disabled = true; // No cambiar el ID
+  idInput.disabled = true;
   urlInput.value = url;
   mountInput.value = mount;
 }
@@ -180,7 +224,7 @@ async function deleteRadio(id) {
   }
 }
 
-// Agregar / actualizar radio
+// Agregar o actualizar radio
 form.addEventListener("submit", async e => {
   e.preventDefault();
   const id = idInput.value.trim();
@@ -207,9 +251,6 @@ form.addEventListener("submit", async e => {
     console.error(err);
   }
 });
-
-// Inicializar
-loadRadios();
 </script>
 
 </body>
